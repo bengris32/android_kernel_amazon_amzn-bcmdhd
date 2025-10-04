@@ -105,9 +105,7 @@ static void dbus_usb_ctl_complete(void *handle, int type, int status);
 static void dbus_usb_state_change(void *handle, int state);
 static struct dbus_irb* dbus_usb_getirb(void *handle, bool send);
 static void dbus_usb_rxerr_indicate(void *handle, bool on);
-#if !defined(BCM_REQUEST_FW)
 static int dbus_usb_resetcfg(usb_info_t *usbinfo);
-#endif
 static int dbus_usb_iovar_op(void *bus, const char *name,
 	void *params, uint plen, void *arg, uint len, bool set);
 static int dbus_iovar_process(usb_info_t* usbinfo, const char *name,
@@ -702,7 +700,6 @@ err:
 	return bcmerror;
 } /* dbus_usb_doiovar */
 
-#if !defined(BCM_REQUEST_FW)
 /**
  * After downloading firmware into dongle and starting it, we need to know if the firmware is
  * indeed up and running.
@@ -760,7 +757,6 @@ dbus_usb_resetcfg(usb_info_t *usbinfo)
 
 	return DBUS_OK;
 }
-#endif
 
 /** before firmware download, the dongle has to be prepared to receive the fw image */
 static int
@@ -1031,7 +1027,7 @@ dbus_usb_dlrun(void *bus)
 		if (usbinfo->pub->attrib.devid == TEST_CHIP)
 			dbus_usbos_wait(osinfo, USB_DLGO_SPINWAIT);
 
-//		dbus_usb_resetcfg(usbinfo);
+		dbus_usb_resetcfg(usbinfo);
 		/* The Donlge may go for re-enumeration. */
 	} else {
 		DBUSERR(("%s: Dongle not runnable\n", __FUNCTION__));

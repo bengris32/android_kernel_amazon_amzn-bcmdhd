@@ -12039,6 +12039,10 @@ dhd_legacy_preinit_ioctls(dhd_pub_t *dhd)
 	uint32 enable_6g = 0;
 #endif /* DISABLE_6G_SUPPORT */
 
+#ifdef LAB126_HT20_ALL_BANDS
+	uint32 mimo_bw_cap = 0;
+#endif
+
 	uint32 d3_hostwake_delay = D3_HOSTWAKE_DELAY;
 
 	BCM_REFERENCE(iovbuf);
@@ -12430,6 +12434,12 @@ dhd_legacy_preinit_ioctls(dhd_pub_t *dhd)
 	if (ret < 0)
 		DHD_ERROR(("%s wl vhtmode 0 failed %d\n", __FUNCTION__, ret));
 #endif /* DISABLE_11AC */
+
+#ifdef LAB126_HT20_ALL_BANDS
+	ret = dhd_iovar(dhd, 0, "mimo_bw_cap", (char *)&mimo_bw_cap, sizeof(mimo_bw_cap), NULL, 0, TRUE);
+	if (ret < 0)
+		DHD_ERROR(("%s mimo_bw_cap setting  failed  %d\n", __FUNCTION__, ret));
+#endif  /* LAB126_HT20_ALL_BANDS */
 
 	/* Set Listen Interval */
 	ret = dhd_iovar(dhd, 0, "assoc_listen", (char *)&listen_interval, sizeof(listen_interval),

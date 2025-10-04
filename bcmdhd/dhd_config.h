@@ -23,7 +23,7 @@
 #define FW_TYPE_MFG     6
 #define FW_TYPE_MINIME  7
 
-#define FW_PATH_AUTO_SELECT 1
+//#define FW_PATH_AUTO_SELECT 1
 #ifdef BCMDHD_MDRIVER
 #define CONFIG_PATH_AUTO_SELECT
 #else

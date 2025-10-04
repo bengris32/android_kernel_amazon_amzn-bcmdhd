@@ -3345,6 +3345,19 @@ dhd_dbus_probe_cb(uint16 bus_no, uint16 slot, uint32 hdrlen)
 				if (bus->dhd->busstate != DHD_BUS_SUSPEND)
 					bus->dhd->busstate = DHD_BUS_LOAD;
 				DHD_LINUX_GENERAL_UNLOCK(pub, flags);
+#ifdef CONFIG_ROOK
+				/*
+				 * On rook, the adapter does not re-enumerate after firmware boot.
+				 * However, the original logic assumes a second enumeration will occur after
+				 * the firmware has booted, and only attaches the adapter during that second pass.
+				 *
+				 * Since rook never performs this second enumeration, the adapter would never
+				 * attach. To work around this, we manually set the adapter status to FW_READY
+				 * and clear the 'dlneeded' flag so the adapter attaches immediately.
+				 */
+				wifi_set_adapter_status(adapter, WIFI_STATUS_FW_READY);
+				dlneeded = 0;
+#endif
 			}
 #endif
 			else {

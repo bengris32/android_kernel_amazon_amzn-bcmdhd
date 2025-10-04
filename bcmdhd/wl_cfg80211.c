@@ -2499,7 +2499,15 @@ wl_cfg80211_p2p_if_add(struct bcm_cfg80211 *cfg,
 			init_completion(&cfg->iface_disable);
 			init_completion(&cfg->iface_up);
 #endif /* LINUX_VERSION_CODE < KERNEL_VERSION(3, 13, 0) */
-
+#ifdef WL_SUPPORT_P2P_AUTO_GO
+			if ( (dhd_mode == DHD_FLAG_P2P_GO_MODE) &&
+			(cfg->p2p_ProbeReq_msg_DoNotDisable == 0)) {
+				if ( wl_add_remove_eventmsg(bcmcfg_to_prmry_ndev(cfg),
+					WLC_E_P2P_PROBREQ_MSG, 1) == 0) {
+					cfg->p2p_ProbeReq_msg_DoNotDisable = 1;
+				}
+			}
+#endif
 			return new_ndev->ieee80211_ptr;
 	}
 
@@ -3785,9 +3793,13 @@ bcm_cfg80211_add_ibss_if(struct wiphy *wiphy, char *name)
 	ASSERT_RTNL();
 	if (wl_cfg80211_register_if(cfg, event->ifidx, new_ndev, FALSE) != BCME_OK)
 		goto fail;
-
+#ifdef LAB126_DISABLE_PS
+	wl_alloc_netinfo(cfg, new_ndev, wdev, WL_IF_TYPE_IBSS,
+		PM_BLOCK, event->bssidx, event->ifidx);
+#else
 	wl_alloc_netinfo(cfg, new_ndev, wdev, WL_IF_TYPE_IBSS,
 		PM_ENABLE, event->bssidx, event->ifidx);
+#endif
 	cfg->ibss_cfgdev = ndev_to_cfgdev(new_ndev);
 	WL_ERR(("IBSS interface %s created\n", new_ndev->name));
 	return cfg->ibss_cfgdev;
@@ -4423,9 +4435,14 @@ wl_cfg80211_post_ifcreate(struct net_device *ndev,
 	}
 
 	/* Initialize with the station mode params */
+#ifdef LAB126_DISABLE_PS
+	ret = wl_alloc_netinfo(cfg, new_ndev, wdev, wl_iftype,
+		PM_BLOCK, event->bssidx, event->ifidx);
+#else
 	ret = wl_alloc_netinfo(cfg, new_ndev, wdev, wl_iftype,
 		PM_ENABLE, event->bssidx, event->ifidx);
-	if (unlikely(ret)) {
+#endif
+		if (unlikely(ret)) {
 		WL_ERR(("wl_alloc_netinfo Error (%d)\n", ret));
 		goto fail;
 	}
@@ -19621,6 +19638,22 @@ s32 wl_add_remove_eventmsg(struct net_device *ndev, u16 event, bool add)
 	cfg = wl_get_cfg(ndev);
 	if (!cfg)
 		return -ENODEV;
+
+#ifdef WL_SUPPORT_P2P_AUTO_GO
+	/*P2p Auto Go enables  reproting of Probe-Request-events after
+	the P2P virtual interface is up and needs to keep Probe_Req
+	events always on. Check if Probe_Req has been turned on by
+	Auto Go. If so, do nothing. No need to turn it off or on.*/
+	if ( (event == WLC_E_P2P_PROBREQ_MSG) &&
+	(cfg->p2p_ProbeReq_msg_DoNotDisable) &&
+	(ndev == bcmcfg_to_prmry_ndev(cfg))) {
+				WL_DBG(("Do nothing! p2p_ProbeReq_msg_DoNotDisable=%d"
+				"ndev=%p event=%d add=%d, err=%d \n",
+				cfg->p2p_ProbeReq_msg_DoNotDisable,
+				ndev->name, event, add, err));
+		return 0; /*Just return. Do nothing.*/
+	}
+#endif
 
 	mutex_lock(&cfg->event_sync);
 

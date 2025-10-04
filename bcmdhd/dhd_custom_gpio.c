@@ -341,6 +341,7 @@ int syna_country_update_type_list(eCountry_flag_type type, char *list_str)
 #endif /* SYNA_SAR_CUSTOMER_PARAMETER */
 
 #ifndef CUSTOMER_HW4
+#ifndef LAB126_TARGET_RK
 /* Customized Locale table : OPTIONAL feature */
 const struct cntry_locales_custom translate_custom_table[] = {
 /* Table should be filled out based on custom platform regulatory requirement */
@@ -447,6 +448,50 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"MH", "XZ", 11},	/* Universal if Country code is MARSHALL ISLANDS */
 #endif /* BOARD_HIKEY */
 };
+#else
+#define DEFAULT_WWS_CCODE	"XZ"
+#define DEFAULT_WWS_REV		979
+const struct cntry_locales_custom translate_custom_table[] = {
+	{"",   "XZ", 979},  /* Universal if Country code is unknown or empty */
+	{"WS", "XZ", 979},  /* Pass WS if no support for country is not present*/
+	{"US", "US", 879}, /* input ISO "US" to : US regrev 906 */
+	{"CA", "US", 879}, /* input ISO "CA" to : US regrev 906 */
+	{"JP", "JP", 120},
+	{"IN", "IN", 991},
+	{"EU", "DE", 120},
+	{"BE", "DE", 120},
+	{"BG", "DE", 120},
+	{"CY", "DE", 120},
+	{"CZ", "DE", 120},
+	{"DK", "DE", 120},
+	{"EE", "DE", 120},
+	{"FI", "DE", 120},
+	{"FR", "DE", 120},
+	{"DE", "DE", 120},
+	{"GR", "DE", 120},
+	{"HU", "DE", 120},
+	{"IE", "DE", 120},
+	{"IT", "DE", 120},
+	{"LV", "DE", 120},
+	{"LI", "DE", 120},
+	{"LT", "DE", 120},
+	{"LU", "DE", 120},
+	{"MT", "DE", 120},
+	{"NL", "DE", 120},
+	{"PL", "DE", 120},
+	{"PT", "DE", 120},
+	{"RO", "DE", 120},
+	{"SK", "DE", 120},
+	{"SI", "DE", 120},
+	{"ES", "DE", 120},
+	{"SE", "DE", 120},
+	{"AU", "AU", 931},
+	{"NZ", "AU", 931},
+	{"MX", "MX", 55},
+    {"GB", "DE", 120},
+	{"AT", "DE", 120}
+};
+#endif
 
 /* Customized Locale convertor
 *  input : ISO 3166-1 country abbreviation

@@ -50,8 +50,8 @@ CONFIG_BCMDHD ?= m
 #CONFIG_BCMDHD_CUSB := y
 #CONFIG_BCMDHD_NO_POWER_OFF := y
 CONFIG_BCMDHD_PROPTXSTATUS := y
-CONFIG_DHD_USE_STATIC_BUF := y
-CONFIG_BCMDHD_STATIC_BUF_IN_DHD := y
+#CONFIG_DHD_USE_STATIC_BUF := y
+#CONFIG_BCMDHD_STATIC_BUF_IN_DHD := y
 #CONFIG_BCMDHD_STATIC_BUF_IN_KERNEL := y
 #CONFIG_BCMDHD_ANDROID_VERSION := 12
 CONFIG_BCMDHD_AUTO_SELECT := y
@@ -66,7 +66,7 @@ CONFIG_BCMDHD_DEBUG := y
 #CONFIG_BCMDHD_MULTIPLE_DRIVER := y
 #CONFIG_BCMDHD_ADAPTER_INDEX ?= 0
 
-CONFIG_MACH_PLATFORM := y
+#CONFIG_MACH_PLATFORM := y
 #CONFIG_BCMDHD_DTS := y
 
 DHDCFLAGS = -Wall -Wstrict-prototypes -Wno-date-time                      \
@@ -96,6 +96,17 @@ DHDOFILES = aiutils.o siutils.o sbutils.o hndpmu.o hndjtag.o              \
 	dhd_linux_tx.o dhd_linux_rx.o fwpkg_utils.o                           \
 	dhd_config.o dhd_ccode.o wl_event.o wl_android_ext.o                  \
 	wl_iapsta.o wl_escan.o wl_timer.o
+
+ifeq ($(CONFIG_ROOK),y)
+# Rook specific flags
+DHDCFLAGS += -DLAB126_DISABLE_PS
+DHDCFLAGS += -DCONFIG_DTS
+DHDCFLAGS += -DDISABLE_11AC
+DHDCFLAGS += -DLAB126_HT20_ALL_BANDS
+DHDCFLAGS += -DCUSTOM_BCN_TIMEOUT=15
+DHDCFLAGS += -DWL_SUPPORT_P2P_AUTO_GO
+DHDCFLAGS += -DLAB126_TARGET_RK
+endif
 
 ifneq ($(CONFIG_WIRELESS_EXT),)
 	DHDOFILES += wl_iw.o
@@ -214,7 +225,7 @@ ifneq ($(CONFIG_BCMDHD_REQUEST_FW),y)
 endif
 ifneq ($(CONFIG_BCMDHD_CUSB),)
 	DHDCFLAGS += -DBCMUSBDEV_COMPOSITE
-	CONFIG_BCMDHD_NO_POWER_OFF := y
+#	CONFIG_BCMDHD_NO_POWER_OFF := y
 endif
 DHDOFILES += dbus.o dbus_usb.o dbus_usb_linux.o dhd_cdc.o dhd_wlfc.o
 endif
@@ -450,12 +461,19 @@ ifeq ($(CONFIG_BCMDHD_REQUEST_FW),y)
 	DHDCFLAGS += -DDHD_CONFIG_NAME="\"config.txt\""
 else
 	DHDCFLAGS += -DDHD_SUPPORT_VFS_CALL
+ifeq ($(CONFIG_ROOK),y)
+	DHDCFLAGS += -DCONFIG_BCMDHD_FW_PATH="\"/vendor/firmware/bcm43569a2-firmware.bin\""
+	DHDCFLAGS += -DCONFIG_BCMDHD_NVRAM_PATH="\"/vendor/firmware/bcm43569a2.nvm\""
+	DHDCFLAGS += -DCONFIG_BCMDHD_CLM_PATH="\"/vendor/etc/firmware/clm_bcmdhd.blob\""
+	DHDCFLAGS += -DCONFIG_BCMDHD_CONFIG_PATH="\"/vendor/etc/firmware/config.txt\""
+else
 ifeq ($(CONFIG_BCMDHD_FW_PATH),)
 	DHDCFLAGS += -DCONFIG_BCMDHD_FW_PATH="\"/vendor/etc/firmware/fw_bcmdhd.bin\""
 	DHDCFLAGS += -DCONFIG_BCMDHD_NVRAM_PATH="\"/vendor/etc/firmware/nvram.txt\""
 	DHDCFLAGS += -DCONFIG_BCMDHD_CLM_PATH="\"/vendor/etc/firmware/clm_bcmdhd.blob\""
 endif
 	DHDCFLAGS += -DCONFIG_BCMDHD_CONFIG_PATH="\"/vendor/etc/firmware/config.txt\""
+endif
 endif
 
 ifeq ($(CONFIG_BCMDHD_FW_SIGNATURE),y)

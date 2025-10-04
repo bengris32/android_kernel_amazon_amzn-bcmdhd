@@ -275,6 +275,17 @@ int wifi_platform_get_irq_level(wifi_adapter_info_t *adapter)
 int wifi_platform_set_power(wifi_adapter_info_t *adapter, bool on, unsigned long msec)
 {
 	int err = 0;
+#ifdef CONFIG_DTS
+	if (on) {
+		err = regulator_enable(wifi_regulator);
+		wifi_set_adapter_status(adapter, WIFI_STATUS_POWER_ON);
+	} else {
+		err = regulator_disable(wifi_regulator);
+		wifi_clr_adapter_status(adapter, WIFI_STATUS_POWER_ON);
+	}
+	if (err < 0)
+		DHD_ERROR(("%s: regulator enable/disable failed\n", __FUNCTION__));
+#else
 	struct wifi_platform_data *plat_data;
 
 	if (on) {
@@ -327,6 +338,7 @@ fail:
 	} else {
 		wifi_set_adapter_status(adapter, WIFI_STATUS_POWER_ON);
 	}
+#endif /* CONFIG_DTS */
 	return err;
 }
 
@@ -416,6 +428,9 @@ static int wifi_plat_dev_drv_probe(struct platform_device *pdev)
 {
 	struct resource *resource;
 	wifi_adapter_info_t *adapter;
+#ifdef CONFIG_DTS
+	int irq, gpio;
+#endif /* CONFIG_DTS */
 
 	/* Android style wifi platform data device ("bcmdhd_wlan" or "bcm4329_wlan")
 	 * is kept for backward compatibility and supports only 1 adapter
@@ -423,11 +438,11 @@ static int wifi_plat_dev_drv_probe(struct platform_device *pdev)
 	ASSERT(dhd_wifi_platdata != NULL);
 	ASSERT(dhd_wifi_platdata->num_adapters == 1);
 	adapter = &dhd_wifi_platdata->adapters[0];
-#if defined(CONFIG_WIFI_CONTROL_FUNC)
+//#if defined(CONFIG_WIFI_CONTROL_FUNC)
 	adapter->wifi_plat_data = (struct wifi_platform_data *)(pdev->dev.platform_data);
-#else
-	adapter->wifi_plat_data = (void *)&dhd_wlan_control;
-#endif
+//#else
+//	adapter->wifi_plat_data = (void *)&dhd_wlan_control;
+//#endif
 
 #ifdef BCMDHD_PLATDEV
 	adapter->pdev = pdev;
@@ -447,6 +462,33 @@ static int wifi_plat_dev_drv_probe(struct platform_device *pdev)
 		adapter->intr_flags |= IRQF_NO_SUSPEND;
 #endif
 	}
+
+#if defined(CONFIG_DTS) && defined(CONFIG_ROOK)
+	wifi_regulator = regulator_get(&pdev->dev, "wlreg_on");
+	if (IS_ERR(wifi_regulator)) {
+		DHD_ERROR(("%s failed to get regulator, err=%ld\n",
+					__FUNCTION__, PTR_ERR(wifi_regulator)));
+		return -1;
+	}
+
+	/* This is to get the irq for the OOB */
+	gpio = of_get_gpio(pdev->dev.of_node, 0);
+
+	if (gpio < 0) {
+		DHD_ERROR(("%s gpio information is incorrect\n", __FUNCTION__));
+		return -1;
+	}
+	irq = gpio_to_irq(gpio);
+	if (irq < 0) {
+		DHD_ERROR(("%s irq information is incorrect\n", __FUNCTION__));
+		return -1;
+	}
+	adapter->irq_num = irq;
+
+	/* need to change the flags according to our requirement */
+	adapter->intr_flags = IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHLEVEL |
+		IORESOURCE_IRQ_SHAREABLE;
+#endif /* CONFIG_DTS */
 
 	wifi_plat_dev_probe_ret = dhd_wifi_platform_load();
 	return wifi_plat_dev_probe_ret;
@@ -475,6 +517,9 @@ static int wifi_plat_dev_drv_remove(struct platform_device *pdev)
 #ifdef BCMDHD_PLATDEV
 	dhd_wlan_deinit_plat_data(adapter);
 #endif
+#ifdef CONFIG_DTS
+	regulator_put(wifi_regulator);
+#endif /* CONFIG_DTS */
 	return 0;
 }
 
@@ -499,10 +544,12 @@ static int wifi_plat_dev_drv_resume(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_DTS
 static const struct of_device_id wifi_device_dt_match[] = {
-	{ .compatible = "android,bcmdhd_wlan", .name = "", },
-	{ .name = "" },
+	{ .compatible = "android,bcmdhd_wlan", },
+	{},
 };
+#endif /* CONFIG_DTS */
 static struct platform_driver wifi_platform_dev_driver = {
 	.probe          = wifi_plat_dev_drv_probe,
 	.remove         = wifi_plat_dev_drv_remove,
@@ -513,10 +560,13 @@ static struct platform_driver wifi_platform_dev_driver = {
 #endif /* DHD_WIFI_SHUTDOWN */
 	.driver         = {
 	.name   = WIFI_PLAT_NAME,
+#ifdef CONFIG_DTS
 	.of_match_table = wifi_device_dt_match,
+#endif /* CONFIG_DTS */
 	}
 };
 
+#ifndef CONFIG_DTS
 static struct platform_driver wifi_platform_dev_driver_legacy = {
 	.probe          = wifi_plat_dev_drv_probe,
 	.remove         = wifi_plat_dev_drv_remove,
@@ -529,6 +579,7 @@ static struct platform_driver wifi_platform_dev_driver_legacy = {
 	.name	= WIFI_PLAT_NAME2,
 	}
 };
+#endif
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
 static int wifi_platdev_match(struct device *dev, const void *data)
@@ -556,7 +607,7 @@ static int wifi_ctrlfunc_register_drv(void)
 {
 	wifi_adapter_info_t *adapter;
 
-#ifndef CUSTOMER_HW
+#if !defined(CONFIG_DTS)
 	int err = 0;
 	struct device *dev1, *dev2;
 	dev1 = bus_find_device(&platform_bus_type, NULL, WIFI_PLAT_NAME, wifi_platdev_match);
@@ -574,14 +625,14 @@ static int wifi_ctrlfunc_register_drv(void)
 #endif /* WBRC */
 #endif /* defined(BCMDHD_MODULAR) && defined(BOARD_MODULAR_INIT) */
 
-#if !defined(CONFIG_DTS) && !defined(CUSTOMER_HW)
-	if (!dts_enabled) {
-		if (dev1 == NULL && dev2 == NULL) {
-			DHD_ERROR(("no wifi platform data, skip\n"));
-			return -ENXIO;
-		}
-	}
-#endif /* !defined(CONFIG_DTS) */
+//#if !defined(CONFIG_DTS) && !defined(CUSTOMER_HW)
+//	if (!dts_enabled) {
+//		if (dev1 == NULL && dev2 == NULL) {
+//			DHD_ERROR(("no wifi platform data, skip\n"));
+//			return -ENXIO;
+//		}
+//	}
+//#endif /* !defined(CONFIG_DTS) */
 
 	/* multi-chip support not enabled, build one adapter information for
 	 * DHD (either SDIO, USB or PCIe)
@@ -609,7 +660,7 @@ static int wifi_ctrlfunc_register_drv(void)
 	dhd_wifi_platdata->adapters = adapter;
 	init_waitqueue_head(&adapter->status_event);
 
-#ifndef CUSTOMER_HW
+#if !defined(CONFIG_DTS)
 	if (dev1) {
 		err = platform_driver_register(&wifi_platform_dev_driver);
 		if (err) {
@@ -653,9 +704,12 @@ static int wifi_ctrlfunc_register_drv(void)
 
 void wifi_ctrlfunc_unregister_drv(void)
 {
-	wifi_adapter_info_t *adapter = NULL;
-
+#ifdef CONFIG_DTS
+	DHD_ERROR(("unregister wifi platform drivers\n"));
+	platform_driver_unregister(&wifi_platform_dev_driver);
+#else
 #ifndef CUSTOMER_HW
+	wifi_adapter_info_t *adapter = NULL;
 	struct device *dev1, *dev2;
 	dev1 = bus_find_device(&platform_bus_type, NULL, WIFI_PLAT_NAME, wifi_platdev_match);
 	dev2 = bus_find_device(&platform_bus_type, NULL, WIFI_PLAT_NAME2, wifi_platdev_match);
@@ -684,6 +738,7 @@ void wifi_ctrlfunc_unregister_drv(void)
 			platform_driver_unregister(&wifi_platform_dev_driver_legacy);
 #endif
 	}
+#endif /* CONFIG_DTS */
 
 // modify for compaibility
 #if defined(BCMDHD_MODULAR) && defined(BOARD_MODULAR_INIT)
@@ -699,7 +754,9 @@ void wifi_ctrlfunc_unregister_drv(void)
 		dhd_wlan_deinit_plat_data(adapter);
 #endif
 
+#ifndef CONFIG_DTS
 done:
+#endif
 	if (dhd_wifi_platdata && dhd_wifi_platdata->adapters) {
 		kfree(dhd_wifi_platdata->adapters);
 		dhd_wifi_platdata->adapters = NULL;

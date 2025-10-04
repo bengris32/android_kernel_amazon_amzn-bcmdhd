@@ -2106,6 +2106,9 @@ struct bcm_cfg80211 {
 #if defined(BCMSDIO) || defined(BCMDBUS)
 	bool wlfc_on;
 #endif
+#ifdef WL_SUPPORT_P2P_AUTO_GO
+	bool p2p_ProbeReq_msg_DoNotDisable;/* keep Prob_Req ON.*/
+#endif
 	bool vsdb_mode;
 #define WL_ROAM_OFF_ON_CONCURRENT 	0x0001
 #define WL_ROAM_REVERT_STATUS		0x0002
