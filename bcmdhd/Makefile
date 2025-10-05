@@ -39,7 +39,7 @@
 # <<Broadcom-WL-IPTag/Open:>>
 #
 
-MODULE_NAME := bcmdhd
+MODULE_NAME := amzn-bcmdhd
 CONFIG_BCMDHD ?= m
 
 #CONFIG_BCMDHD_SDIO := y
@@ -514,21 +514,3 @@ endif
 obj-$(CONFIG_BCMDHD) += $(MODULE_NAME).o
 $(MODULE_NAME)-objs += $(DHDOFILES)
 ccflags-y := $(EXTRA_CFLAGS)
-
-all: bcmdhd_pcie bcmdhd_sdio bcmdhd_usb
-
-bcmdhd_pcie:
-	$(warning "building BCMDHD_PCIE..........")
-	$(MAKE) -C $(LINUXDIR) M=$(PWD) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) modules CONFIG_BCMDHD=m CONFIG_BCMDHD_PCIE=y
-
-bcmdhd_sdio:
-	$(warning "building BCMDHD_SDIO..........")
-	$(MAKE) -C $(LINUXDIR) M=$(PWD) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) modules CONFIG_BCMDHD=m CONFIG_BCMDHD_SDIO=y
-
-bcmdhd_usb:
-	$(warning "building BCMDHD_USB..........")
-	$(MAKE) -C $(LINUXDIR) M=$(PWD) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) modules CONFIG_BCMDHD=m CONFIG_BCMDHD_USB=y
-
-clean:
-	rm -rf *.o *.ko *.mod.c *~ .*.cmd *.o.cmd .*.o.cmd *.mod \
-	Module.symvers modules.order .tmp_versions modules.builtin
